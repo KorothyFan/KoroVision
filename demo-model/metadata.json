@@ -1,0 +1,20 @@
+{
+  "classes": [
+    "独角狮",
+    "其他狮子",
+    "其他物品"
+  ],
+  "numClasses": 3,
+  "trainedAt": "2026-07-07T18:37:40.417Z",
+  "embeddingDim": 1280,
+  "modelType": "MobileNetV2 + Dense Classifier",
+  "bestValAcc": 0.9090909361839294,
+  "epochs": 20,
+  "totalSamples": 74,
+  "samplesPerClass": {
+    "独角狮": 28,
+    "其他狮子": 17,
+    "其他物品": 29
+  },
+  "version": 1
+}

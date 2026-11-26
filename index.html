@@ -1,0 +1,1938 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KoroVision · 浏览器端图像识别模型训练平台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#F8FAFC;--card:#FFFFFF;
+  --primary:#2563EB;--primary-hover:#1D4ED8;--primary-light:rgba(37,99,235,0.08);
+  --success:#22C55E;--warning:#F59E0B;--danger:#EF4444;
+  --text:#111827;--text2:#6B7280;--text3:#9CA3AF;--text4:#D1D5DB;
+  --border:#E5E7EB;--border-light:#F3F4F6;
+  --dark:#0F172A;
+  --shadow-sm:0 1px 2px rgba(0,0,0,0.05);
+  --shadow:0 1px 3px rgba(0,0,0,0.1),0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md:0 4px 6px -1px rgba(0,0,0,0.1),0 2px 4px -1px rgba(0,0,0,0.06);
+  --shadow-lg:0 10px 15px -3px rgba(0,0,0,0.1),0 4px 6px -2px rgba(0,0,0,0.05);
+  --radius:16px;--radius-sm:12px;--radius-xs:8px;
+  --font:'Inter',-apple-system,"PingFang SC","Microsoft YaHei","Helvetica Neue",sans-serif;
+  --font-mono:"Cascadia Code","SF Mono","Fira Code",monospace;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--text4)}
+
+/* ── Sidebar ── */
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:240px;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:50}
+.sidebar-brand{padding:20px 24px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border)}
+.sidebar-brand .logo{width:36px;height:36px;border-radius:10px;background:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sidebar-brand .logo svg{width:20px;height:20px;color:#fff}
+.sidebar-brand h1{font-size:15px;font-weight:700;color:var(--text)}
+.sidebar-brand .ver{font-size:10px;color:var(--text3);font-weight:500}
+.sidebar-nav{flex:1;padding:16px 12px;display:flex;flex-direction:column;gap:4px}
+.nav-item{display:flex;align-items:center;gap:12px;padding:10px 16px;border-radius:var(--radius-sm);cursor:pointer;transition:all .2s;font-size:14px;font-weight:500;color:var(--text2);border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:var(--border-light);color:var(--text)}
+.nav-item.active{background:var(--primary-light);color:var(--primary);font-weight:600}
+.nav-item svg{width:20px;height:20px;flex-shrink:0;opacity:.7}
+.nav-item.active svg{opacity:1}
+.sidebar-footer{padding:16px 24px;border-top:1px solid var(--border);font-size:11px;color:var(--text3)}
+
+/* ── Content ── */
+.content{margin-left:240px;min-height:100vh}
+
+/* ── Topbar ── */
+.topbar{height:56px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 32px;gap:16px;position:sticky;top:0;z-index:40}
+.model-status{display:flex;align-items:center;gap:8px}
+.status-dot{width:8px;height:8px;border-radius:50%;background:#9CA3AF;transition:background .3s}
+.status-dot.loading{background:var(--warning);animation:pulse 1s infinite}
+.status-dot.ready{background:var(--success)}
+.status-dot.error{background:var(--danger)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.status-text{font-size:13px;font-weight:500;color:var(--text2)}
+.topbar-spacer{flex:1}
+.topbar-stats{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text3);font-weight:500}
+.topbar-stats .sep{color:var(--border)}
+
+/* ── Pages ── */
+.page{display:none;padding:32px}
+.page.active{display:block}
+.page-title{font-size:24px;font-weight:700;margin-bottom:8px;color:var(--text)}
+.page-desc{font-size:14px;color:var(--text2);margin-bottom:24px}
+
+/* ── Cards ── */
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm);transition:box-shadow .3s,transform .2s}
+.card:hover{box-shadow:var(--shadow-md)}
+.card-header{padding:20px 24px;border-bottom:1px solid var(--border-light);display:flex;align-items:center;gap:12px}
+.card-header h2{font-size:16px;font-weight:600}
+.card-body{padding:24px}
+
+/* ── Overview Stats ── */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-bottom:32px}
+@media(max-width:1200px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
+.stat-card{background:var(--card);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow-sm);transition:box-shadow .3s,transform .2s}
+.stat-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.stat-card .stat-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+.stat-card .stat-icon svg{width:22px;height:22px}
+.stat-card .stat-icon.blue{background:rgba(37,99,235,.1);color:var(--primary)}
+.stat-card .stat-icon.green{background:rgba(34,197,94,.1);color:var(--success)}
+.stat-card .stat-icon.purple{background:rgba(139,92,246,.1);color:#8B5CF6}
+.stat-card .stat-icon.amber{background:rgba(245,158,11,.1);color:var(--warning)}
+.stat-value{font-size:32px;font-weight:700;color:var(--text);margin-bottom:4px}
+.stat-label{font-size:13px;color:var(--text2);font-weight:500}
+
+/* ── Category Grid ── */
+.cat-section-label{font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.cat-section-label .count{font-weight:400;color:var(--text3);font-size:12px}
+.cat-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+
+.cat-card{border:none;border-radius:var(--radius);padding:18px;cursor:pointer;position:relative;transition:all .25s ease;background:var(--card);box-shadow:var(--shadow-sm)}
+.cat-card:hover,.cat-card.dragover{box-shadow:var(--shadow-md);transform:translateY(-2px);outline:2px solid var(--primary)}
+.cat-card.selected{outline:2px solid var(--primary);box-shadow:var(--shadow-md)}
+.cat-card-top{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.cat-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.cat-name{border:none;background:transparent;font-size:14px;font-weight:600;color:var(--text);outline:none;width:100%;padding:0;line-height:1.3;font-family:var(--font)}
+.cat-name:focus{border-bottom:2px solid var(--primary)}
+.cat-name::placeholder{color:var(--text4)}
+.cat-count{font-size:12px;color:var(--text3);margin-bottom:10px;font-weight:500}
+.cat-thumbs{display:flex;flex-wrap:wrap;gap:4px;max-height:60px;overflow:hidden}
+.cat-thumbs img{width:36px;height:36px;object-fit:cover;border-radius:6px;transition:transform .2s}
+.cat-thumbs img:hover{transform:scale(1.15);z-index:1}
+.cat-more{width:36px;height:36px;border-radius:6px;background:var(--border-light);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text2);font-weight:600}
+.cat-empty{font-size:12px;color:var(--text4);text-align:center;padding:20px 0}
+.cat-actions{position:absolute;top:10px;right:10px;display:flex;gap:4px;opacity:0;transition:opacity .2s}
+.cat-card:hover .cat-actions{opacity:1}
+.cat-btn{width:26px;height:26px;border:none;background:rgba(255,255,255,.9);border-radius:var(--radius-xs);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;color:var(--text3);transition:all .2s;backdrop-filter:blur(4px)}
+.cat-btn:hover{background:var(--danger);color:#fff;transform:scale(1.1)}
+.cat-btn.clear:hover{background:var(--danger);color:#fff}
+
+.cat-add-btn{min-height:120px;border:2px dashed var(--border);border-radius:var(--radius);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all .2s;background:transparent;color:var(--text3);font-size:12px;font-weight:500}
+.cat-add-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
+.cat-add-btn .plus{font-size:28px;line-height:1;font-weight:300}
+
+.cat-badge-trained{font-size:9px;background:var(--success);color:#fff;padding:2px 8px;border-radius:8px;font-weight:600;white-space:nowrap}
+
+/* ── Image Manager (expandable grid) ── */
+.cat-img-mgr{display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-light)}
+.cat-img-mgr.active{display:block}
+.cat-img-mgr-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.cat-img-mgr-head span{font-size:12px;color:var(--text2);font-weight:500}
+.cat-img-mgr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}
+.cat-img-mgr-item{position:relative;border-radius:8px;overflow:hidden;aspect-ratio:1;cursor:default}
+.cat-img-mgr-item img{width:100%;height:100%;object-fit:cover;display:block}
+.cat-img-mgr-item .img-del{position:absolute;top:3px;right:3px;width:20px;height:20px;border:none;background:rgba(0,0,0,.55);color:#fff;border-radius:50%;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s}
+.cat-img-mgr-item:hover .img-del{opacity:1}
+.cat-img-mgr-item .img-del:hover{background:var(--danger)}
+.cat-img-mgr-add{aspect-ratio:1;border:1.5px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;color:var(--text3);transition:all .2s}
+.cat-img-mgr-add:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
+.cat-btn.manage:hover{background:var(--primary);color:#fff}
+
+/* ── Controls & Buttons ── */
+.btn{height:44px;padding:0 24px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:8px;font-family:var(--font)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important;box-shadow:none!important}
+.btn:active:not(:disabled){transform:scale(.97)!important}
+.btn-primary{background:var(--primary);color:#fff;box-shadow:var(--shadow-sm)}
+.btn-primary:hover:not(:disabled){background:var(--primary-hover);box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.btn-gold{background:var(--primary);color:#fff;box-shadow:var(--shadow-sm)}
+.btn-gold:hover:not(:disabled){background:var(--primary-hover);box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.btn-sm{height:36px;padding:0 16px;font-size:12px;border-radius:var(--radius-xs)}
+.btn-outline{background:var(--card);border:1.5px solid var(--border);color:var(--text2)}
+.btn-outline:hover:not(:disabled){border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover:not(:disabled){background:#DC2626;transform:translateY(-1px)}
+.btn-lg{height:52px;padding:0 32px;font-size:15px;border-radius:var(--radius-sm)}
+
+.train-controls{display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.train-controls label{font-size:13px;color:var(--text2);font-weight:500}
+.train-controls select{padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius-xs);font-size:13px;background:var(--card);font-family:var(--font);color:var(--text)}
+.train-controls select:focus{outline:none;border-color:var(--primary)}
+
+/* ── Chart ── */
+.chart-wrap{margin-top:20px;display:none}
+.chart-wrap.active{display:block}
+.chart-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.chart-head h3{font-size:15px;font-weight:600}
+.chart-legend{display:flex;gap:16px;font-size:12px;color:var(--text2)}
+.chart-legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+canvas.train-chart{width:100%;height:200px;border-radius:var(--radius-sm);display:block}
+.dl-row{display:flex;gap:8px;margin-top:12px}
+
+/* ── Progress ── */
+.progress-area{display:none;margin-top:16px}
+.progress-area.active{display:block}
+.progress-bar-outer{height:8px;background:var(--border-light);border-radius:4px;overflow:hidden;margin-bottom:8px}
+.progress-bar-inner{height:100%;background:linear-gradient(90deg,var(--primary),#60A5FA);border-radius:4px;transition:width .4s cubic-bezier(.4,0,.2,1);width:0;position:relative}
+.progress-bar-inner::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.3) 50%,transparent 100%);animation:shimmer 1.8s infinite}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.progress-text{font-size:12px;color:var(--text2);display:flex;justify-content:space-between;font-weight:500}
+.train-log{margin-top:16px;max-height:180px;overflow-y:auto;font-family:var(--font-mono);font-size:11px;background:var(--dark);color:#94A3B8;padding:16px 20px;border-radius:var(--radius-sm);line-height:1.8;white-space:pre-wrap}
+.train-log::-webkit-scrollbar{width:4px}
+.train-log::-webkit-scrollbar-thumb{background:#334155;border-radius:2px}
+
+/* ── Test Area ── */
+.test-layout{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media(max-width:960px){.test-layout{grid-template-columns:1fr}}
+.test-upload{border:2px dashed var(--border);border-radius:var(--radius);padding:48px 24px;text-align:center;cursor:pointer;transition:all .3s;background:var(--card)}
+.test-upload:hover,.test-upload.dragover{border-color:var(--primary);background:var(--primary-light);box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.test-upload .icon{font-size:48px;margin-bottom:12px;opacity:.6;transition:opacity .2s}
+.test-upload:hover .icon{opacity:1}
+.test-upload .hint{font-size:14px;color:var(--text2);font-weight:500}
+.test-upload .sub{font-size:12px;color:var(--text3);margin-top:8px}
+.test-preview{display:none;margin-bottom:16px;position:relative;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.test-preview img{width:100%;max-height:320px;object-fit:contain;border-radius:var(--radius);background:var(--border-light)}
+.test-preview .change-btn{position:absolute;top:12px;right:12px}
+
+/* ── Result ── */
+.result-area{display:none}
+.result-area.active{display:block}
+.result-card{border-radius:var(--radius);padding:28px;margin-bottom:16px;text-align:center;transition:all .35s}
+.result-card.positive{background:var(--dark);color:#fff;box-shadow:var(--shadow-lg)}
+.result-card.negative{background:var(--border-light)}
+.result-card.uncertain{background:#FFFBEB;border:1.5px solid var(--warning)}
+.result-icon{font-size:48px;margin-bottom:12px}
+.result-label{font-size:24px;font-weight:700;margin-bottom:8px}
+.result-conf{font-size:14px;opacity:.75;font-weight:500}
+
+.prob-bars{margin-top:16px}
+.prob-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.prob-rank{font-size:11px;color:var(--text3);width:20px;text-align:center;flex-shrink:0;font-weight:600}
+.prob-label{font-size:13px;width:80px;text-align:right;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.prob-bar-outer{flex:1;height:32px;background:var(--border-light);border-radius:16px;overflow:hidden;position:relative}
+.prob-bar-inner{height:100%;border-radius:16px;transition:width .6s cubic-bezier(.4,0,.2,1);display:flex;align-items:center;justify-content:flex-end;padding-right:12px;font-size:11px;font-weight:700;color:#fff;min-width:44px;text-shadow:0 1px 2px rgba(0,0,0,.2)}
+
+/* ── Threshold ── */
+.threshold-ctrl{display:flex;align-items:center;gap:12px;padding:16px 0;margin-bottom:16px;border-bottom:1px solid var(--border-light)}
+.threshold-ctrl label{font-size:13px;color:var(--text2);white-space:nowrap;font-weight:500}
+.threshold-ctrl input[type=range]{flex:1;-webkit-appearance:none;height:4px;background:var(--border);border-radius:2px;outline:none}
+.threshold-ctrl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--primary);cursor:pointer;border:3px solid #fff;box-shadow:var(--shadow);transition:transform .15s}
+.threshold-ctrl input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15)}
+.threshold-val{font-size:14px;font-weight:700;color:var(--primary);min-width:40px;text-align:right}
+
+.batch-area{margin-top:20px;padding-top:20px;border-top:1px solid var(--border-light)}
+.batch-results{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-top:16px}
+.batch-item{border-radius:var(--radius-sm);overflow:hidden;border:2px solid var(--border-light);transition:all .25s;cursor:pointer;background:var(--card)}
+.batch-item:hover{border-color:var(--primary);box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.batch-item.uncertain{border-color:var(--warning)}
+.batch-item.uncertain .info .name{color:var(--warning)}
+.batch-item img{width:100%;height:88px;object-fit:cover;display:block}
+.batch-item .info{padding:10px;font-size:11px;text-align:center}
+.batch-item .info .name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.batch-item .info .conf{color:var(--text3);font-size:10px;margin-top:3px}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(90px);background:var(--dark);color:#E2E8F0;padding:14px 28px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s;z-index:1000;pointer-events:none;opacity:0;box-shadow:var(--shadow-lg)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+/* ── Model Info Panel ── */
+.model-info{background:var(--dark);border-radius:var(--radius);padding:20px 24px;color:#fff;margin-bottom:20px;display:none;box-shadow:var(--shadow-md)}
+.model-info.active{display:block;animation:fadeSlideIn .35s ease}
+@keyframes fadeSlideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.model-info-head{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.model-info-head .icon{font-size:24px}
+.model-info-head .title{font-size:15px;font-weight:600}
+.model-info-badge{background:var(--primary);color:#fff;font-size:10px;padding:4px 12px;border-radius:10px;font-weight:700;margin-left:auto}
+.model-info-stats{display:flex;gap:16px;flex-wrap:wrap}
+.model-info-stat{font-size:12px;color:#94A3B8}
+.model-info-stat b{color:#fff;font-weight:600}
+.model-info-cats{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.model-info-chip{font-size:11px;background:rgba(255,255,255,.08);padding:5px 14px;border-radius:12px;display:flex;align-items:center;gap:6px;backdrop-filter:blur(4px);color:#CBD5E1}
+.model-info-chip .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* ── Train Mode Toggle ── */
+.mode-section{display:flex;align-items:center;gap:14px;margin-bottom:20px;padding:14px 18px;background:var(--border-light);border-radius:var(--radius-sm);font-size:13px}
+.mode-toggle{position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0}
+.mode-toggle input{opacity:0;width:0;height:0}
+.mode-slider{position:absolute;cursor:pointer;inset:0;background:var(--border);border-radius:24px;transition:.3s}
+.mode-slider::before{content:'';position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s;box-shadow:var(--shadow-sm)}
+.mode-toggle input:checked+.mode-slider{background:var(--primary)}
+.mode-toggle input:checked+.mode-slider::before{transform:translateX(20px)}
+.mode-text{font-size:12px;color:var(--text2);line-height:1.5}
+.mode-text b{color:var(--text);font-weight:600}
+
+/* ── Model Management ── */
+.model-mgmt-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media(max-width:960px){.model-mgmt-grid{grid-template-columns:1fr}}
+.export-section{display:flex;flex-direction:column;gap:12px}
+.export-btn{height:64px;padding:0 20px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--card);cursor:pointer;display:flex;align-items:center;gap:16px;transition:all .2s;font-family:var(--font);text-align:left}
+.export-btn:hover{border-color:var(--primary);background:var(--primary-light);transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.export-btn .export-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.export-btn .export-text{display:flex;flex-direction:column;justify-content:center;min-height:40px}
+.export-btn .export-text .title{font-size:14px;font-weight:600;color:var(--text);line-height:1.3}
+.export-btn .export-text .desc{font-size:11px;color:var(--text3);margin-top:3px;line-height:1.3}
+.info-card{background:var(--dark);border-radius:var(--radius);padding:24px;color:#fff}
+.info-card h3{font-size:15px;font-weight:600;margin-bottom:20px;color:#F1F5F9}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.info-row:last-child{border:none}
+.info-row .label{font-size:13px;color:#94A3B8}
+.info-row .value{font-size:13px;font-weight:600;color:#F1F5F9}
+
+input[type=file]{display:none}
+
+.tip{font-size:11px;color:var(--text3);margin-top:12px;line-height:1.6;padding:10px 14px;background:var(--border-light);border-radius:var(--radius-xs);border-left:3px solid var(--border)}
+.tip strong{color:var(--text2)}
+
+/* ── Responsive ── */
+@media(max-width:768px){
+  .sidebar{width:64px}
+  .sidebar-brand h1,.sidebar-brand .ver,.nav-item span,.sidebar-footer{display:none}
+  .sidebar-brand{padding:16px;justify-content:center}
+  .nav-item{justify-content:center;padding:12px}
+  .content{margin-left:64px}
+  .page{padding:20px}
+  .stats-grid{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- ── Sidebar ── -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+    </div>
+    <div>
+      <h1>KoroVision</h1>
+      <div class="ver">TF.js · MobileNet V2 + Dense</div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <button class="nav-item" data-page="overview" onclick="switchPage('overview')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span>概览</span>
+    </button>
+    <button class="nav-item active" data-page="dataset" onclick="switchPage('dataset')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      <span>数据集</span>
+    </button>
+    <button class="nav-item" data-page="training" onclick="switchPage('training')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      <span>模型训练</span>
+    </button>
+    <button class="nav-item" data-page="testing" onclick="switchPage('testing')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span>测试识别</span>
+    </button>
+    <button class="nav-item" data-page="management" onclick="switchPage('management')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      <span>模型管理</span>
+    </button>
+  </nav>
+  <div class="sidebar-footer">Powered by TensorFlow.js · KoroVision</div>
+</aside>
+
+<!-- ── Content ── -->
+<div class="content">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="model-status">
+      <span class="status-dot loading" id="statusDot"></span>
+      <span class="status-text" id="statusText">正在加载模型...</span>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-stats">
+      <span>MobileNet V2</span>
+      <span class="sep">·</span>
+      <span><b id="topCatCount">0</b> 类别</span>
+      <span class="sep">·</span>
+      <span><b id="topImgCount">0</b> 张图片</span>
+    </div>
+  </header>
+
+  <!-- ═══ Page: 概览 ═══ -->
+  <div class="page" id="page-overview">
+    <h1 class="page-title">概览</h1>
+    <p class="page-desc">模型训练状态和数据概况</p>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon blue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div class="stat-value" id="ovCatCount">0</div>
+        <div class="stat-label">识别类别</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        </div>
+        <div class="stat-value" id="ovImgCount">0</div>
+        <div class="stat-label">训练图片</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon purple">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <div class="stat-value" id="ovAccuracy">--</div>
+        <div class="stat-label">最佳准确率</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon amber">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="stat-value" id="ovEpochs">--</div>
+        <div class="stat-label">训练轮数</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <h2>快速入门</h2>
+      </div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px">
+          <div style="text-align:center;padding:16px">
+            <div style="width:48px;height:48px;border-radius:12px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:20px;font-weight:700;color:var(--primary)">1</div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px">添加类别</div>
+            <div style="font-size:11px;color:var(--text3)">在数据集页面添加识别类别</div>
+          </div>
+          <div style="text-align:center;padding:16px">
+            <div style="width:48px;height:48px;border-radius:12px;background:rgba(34,197,94,.1);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:20px;font-weight:700;color:var(--success)">2</div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px">上传图片</div>
+            <div style="font-size:11px;color:var(--text3)">拖拽或点击上传训练图片</div>
+          </div>
+          <div style="text-align:center;padding:16px">
+            <div style="width:48px;height:48px;border-radius:12px;background:rgba(139,92,246,.1);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:20px;font-weight:700;color:#8B5CF6">3</div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px">训练模型</div>
+            <div style="font-size:11px;color:var(--text3)">在浏览器内完成模型训练</div>
+          </div>
+          <div style="text-align:center;padding:16px">
+            <div style="width:48px;height:48px;border-radius:12px;background:rgba(245,158,11,.1);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:20px;font-weight:700;color:var(--warning)">4</div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px">测试识别</div>
+            <div style="font-size:11px;color:var(--text3)">上传图片测试识别效果</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Page: 数据集 ═══ -->
+  <div class="page active" id="page-dataset">
+    <h1 class="page-title">数据集</h1>
+    <p class="page-desc">管理识别类别和训练数据。添加类别，拖入或点击上传图片。</p>
+
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-header">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <h2>识别类别</h2>
+        <span style="flex:1"></span>
+        <span style="font-size:12px;color:var(--text3);font-weight:500" id="catCount">0 个类别</span>
+      </div>
+      <div class="card-body">
+        <div class="cat-strip" id="catStrip"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-header">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <h2>加载已保存的模型</h2>
+      </div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--text2);margin-bottom:16px">加载之前训练导出的模型文件（.json + .bin + 可选 metadata.json），或一键载入内置示例模型直接前往「测试识别」页面体验。</p>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-primary" id="btnLoadDemo" onclick="loadDemoModel()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            一键加载内置示例模型（ZumiaoLens 独角狮）
+          </button>
+          <button class="btn btn-outline" id="btnLoadModel" onclick="document.getElementById('fileModel').click()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            选择模型文件
+          </button>
+          <input type="file" id="fileModel" accept=".json,.bin" multiple>
+          <span id="loadedModelInfo" style="font-size:12px;color:var(--text3)"></span>
+        </div>
+        <div class="tip">
+          <strong>内置落地示例（./demo-model/）：</strong>源自 ZumiaoLens 佛山祖庙建筑装饰识别案例的三分类模型（<code>独角狮 / 其他狮子 / 其他物品</code>，验证准确率 90.9%），加载后可直接前往「测试识别」体验或开启增量微调。若以本地 <code>file://</code> 方式直接打开页面，请使用「选择模型文件」手动选中 <code>demo-model/</code> 下的 3 个文件，或通过本地 HTTP 服务 / GitHub Pages 访问。
+        </div>
+      </div>
+    </div>
+
+    <!-- Model info panel (shown when model loaded) -->
+    <div class="model-info" id="modelInfoPanel">
+      <div class="model-info-head">
+        <span class="icon">&#x1F4E6;</span>
+        <span class="title">已加载模型</span>
+        <span class="model-info-badge" id="modelInfoBadge">已训练</span>
+      </div>
+      <div class="model-info-stats" id="modelInfoStats"></div>
+      <div class="model-info-cats" id="modelInfoCats"></div>
+    </div>
+
+    <!-- Training mode toggle (shown when model loaded) -->
+    <div class="mode-section" id="modeSection" style="display:none">
+      <label class="mode-toggle">
+        <input type="checkbox" id="modeToggle" checked onchange="switchTrainMode()">
+        <span class="mode-slider"></span>
+      </label>
+      <div class="mode-text">
+        <b id="modeLabelText">增量训练</b> — <span id="modeDescText">复用已加载模型的隐藏层与已有类别权重，以较低学习率 (0.0002) 微调（需保留至少 2 个含样本的类别，新增类别时建议为旧类别提供少量样本防止遗忘）</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Page: 模型训练 ═══ -->
+  <div class="page" id="page-training">
+    <h1 class="page-title">模型训练</h1>
+    <p class="page-desc">配置训练参数，启动训练。训练在浏览器本地完成，不会上传图片。</p>
+
+    <div class="card">
+      <div class="card-header">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <h2>训练配置</h2>
+      </div>
+      <div class="card-body">
+        <div class="train-controls">
+          <label>训练轮数</label>
+          <select id="epochSelect">
+            <option value="10">10 轮（快速）</option>
+            <option value="20" selected>20 轮（推荐）</option>
+            <option value="40">40 轮（精细）</option>
+          </select>
+          <div style="flex:1"></div>
+          <button class="btn btn-primary" id="btnTrain" onclick="startTraining()" disabled>开始训练</button>
+        </div>
+
+        <div class="progress-area" id="progressArea">
+          <div class="progress-bar-outer"><div class="progress-bar-inner" id="progressBar"></div></div>
+          <div class="progress-text">
+            <span id="progressLabel">准备中...</span>
+            <span id="progressPct">0%</span>
+          </div>
+        </div>
+        <div class="train-log" id="trainLog" style="display:none"></div>
+
+        <div class="chart-wrap" id="chartWrap">
+          <div class="chart-head">
+            <h3>训练曲线</h3>
+            <div class="chart-legend">
+              <span><i style="background:#22C55E"></i>训练准确率</span>
+              <span><i style="background:#F59E0B"></i>验证准确率</span>
+              <span><i style="background:#EF4444"></i>损失</span>
+            </div>
+          </div>
+          <canvas id="trainChart" class="train-chart"></canvas>
+          <div class="dl-row">
+            <button class="btn btn-sm btn-gold" onclick="downloadModel()">下载模型</button>
+            <button class="btn btn-sm btn-outline" onclick="downloadChart()">导出曲线图</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Page: 测试识别 ═══ -->
+  <div class="page" id="page-testing">
+    <h1 class="page-title">测试识别</h1>
+    <p class="page-desc">上传一张或多张图片，测试模型的识别效果。</p>
+
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-body" style="padding-bottom:0">
+        <div class="threshold-ctrl">
+          <label>置信度门槛</label>
+          <input type="range" id="thresholdSlider" min="30" max="95" value="70" oninput="updateThreshold(this.value)">
+          <span class="threshold-val" id="thresholdVal">70%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="test-layout">
+      <!-- Left: Upload -->
+      <div>
+        <div class="test-upload" id="testDrop" onclick="document.getElementById('fileTest').click()">
+          <input type="file" id="fileTest" accept="image/*" multiple>
+          <div class="icon">&#x1F4F8;</div>
+          <div class="hint">上传一张照片进行识别</div>
+          <div class="sub">支持 JPG / PNG，也可一次上传多张批量测试</div>
+        </div>
+
+        <div class="test-preview" id="testPreview">
+          <img id="testImg" src="" alt="测试图片">
+          <button class="btn btn-sm btn-outline change-btn" onclick="resetTest()">换一张</button>
+        </div>
+      </div>
+
+      <!-- Right: Results -->
+      <div>
+        <div class="result-area" id="resultArea">
+          <div class="result-card" id="resultCard">
+            <div class="result-icon" id="resultIcon">&#x2728;</div>
+            <div class="result-label" id="resultLabel">--</div>
+            <div class="result-conf" id="resultConf">--</div>
+          </div>
+          <div class="prob-bars" id="probBars"></div>
+        </div>
+
+        <div class="batch-area" id="batchArea" style="display:none">
+          <div style="display:flex;align-items:center;gap:8px">
+            <h3 style="font-size:14px;font-weight:600">批量测试结果</h3>
+            <span id="batchSummary" style="font-size:12px;color:var(--text3)"></span>
+          </div>
+          <div class="batch-results" id="batchResults"></div>
+        </div>
+
+        <div id="testPlaceholder" style="text-align:center;padding:60px 20px;color:var(--text3)">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:.3;margin-bottom:12px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <div style="font-size:14px;font-weight:500">等待测试图片</div>
+          <div style="font-size:12px;margin-top:4px">在左侧上传图片后，识别结果将显示在这里</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Page: 模型管理 ═══ -->
+  <div class="page" id="page-management">
+    <h1 class="page-title">模型管理</h1>
+    <p class="page-desc">导出训练好的模型文件，或查看当前模型详细信息。</p>
+
+    <div class="model-mgmt-grid">
+      <!-- Export -->
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <h2>导出模型</h2>
+          </div>
+          <div class="card-body">
+            <div class="export-section">
+              <button class="export-btn" onclick="downloadModel()">
+                <div class="export-icon" style="background:rgba(37,99,235,.1)">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </div>
+                <div class="export-text">
+                  <div class="title">下载模型文件</div>
+                  <div class="desc">导出 .json + .bin + metadata.json</div>
+                </div>
+              </button>
+              <button class="export-btn" onclick="downloadChart()">
+                <div class="export-icon" style="background:rgba(34,197,94,.1)">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                </div>
+                <div class="export-text">
+                  <div class="title">导出训练曲线图</div>
+                  <div class="desc">保存为 PNG 图片</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Model Info -->
+      <div>
+        <div class="info-card">
+          <h3>当前模型信息</h3>
+          <div class="info-row">
+            <span class="label">模型架构</span>
+            <span class="value">MobileNet V2 + Dense</span>
+          </div>
+          <div class="info-row">
+            <span class="label">特征维度</span>
+            <span class="value">1280</span>
+          </div>
+          <div class="info-row">
+            <span class="label">识别类别</span>
+            <span class="value" id="mgmtNumCats">--</span>
+          </div>
+          <div class="info-row">
+            <span class="label">最佳准确率</span>
+            <span class="value" id="mgmtAccuracy">--</span>
+          </div>
+          <div class="info-row">
+            <span class="label">训练轮数</span>
+            <span class="value" id="mgmtEpochs">--</span>
+          </div>
+          <div class="info-row">
+            <span class="label">模型状态</span>
+            <span class="value" id="mgmtStatus">未训练</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+//  Configuration
+// ============================================================
+const CAT_COLORS = ['#2563EB','#22C55E','#8B5CF6','#F59E0B','#EC4899','#06B6D4','#F97316','#6366F1'];
+const IMG_SIZE = 224;
+
+// ============================================================
+//  State
+// ============================================================
+let nextCatId = 1;
+const state = {
+  mobilenet: null,
+  model: null,
+  trained: false,
+  trainingCatIds: null,
+  categories: [],
+  threshold: 70,         // confidence threshold percentage
+  trainMode: 'new',      // 'new' or 'incremental'
+  loadedModelMeta: null, // metadata from loaded/trained model
+  lastBestValAcc: null,
+  lastEpochs: null,
+  hasChart: false,
+  lastTestResult: null,
+};
+
+function updateThreshold(val) {
+  state.threshold = parseInt(val, 10);
+  document.getElementById('thresholdVal').textContent = val + '%';
+  if (state.lastTestResult && document.getElementById('resultArea').classList.contains('active')) {
+    showResult(state.lastTestResult);
+  }
+}
+
+// ============================================================
+//  Category Management
+// ============================================================
+function createCategory(name, locked) {
+  const id = nextCatId++;
+  const cat = {
+    id,
+    name: name || ('类别 ' + id),
+    color: CAT_COLORS[(state.categories.length) % CAT_COLORS.length],
+    images: [],   // [{img, dataUrl}]
+    locked: !!locked,
+  };
+  state.categories.push(cat);
+  renderCategories();
+  updateTrainBtn();
+  return cat;
+}
+
+function removeCategory(id) {
+  const cat = state.categories.find(c => c.id === id);
+  if (!cat || cat.locked) return;
+  state.categories = state.categories.filter(c => c.id !== id);
+  renderCategories();
+  updateTrainBtn();
+}
+
+function clearCategoryImages(id) {
+  const cat = state.categories.find(c => c.id === id);
+  if (!cat) return;
+  cat.images = [];
+  renderCategories();
+  updateTrainBtn();
+}
+
+function removeImageFromCategory(catId, imgIndex) {
+  const cat = state.categories.find(c => c.id === catId);
+  if (!cat) return;
+  cat.images.splice(imgIndex, 1);
+  const mgr = document.getElementById('imgMgr_' + catId);
+  if (mgr) {
+    if (cat.images.length === 0) {
+      mgr.classList.remove('active');
+      mgr.innerHTML = '';
+      renderCategories();
+    } else {
+      renderImageManager(catId, mgr);
+    }
+  }
+  const card = mgr ? mgr.closest('.cat-card') : null;
+  if (card) {
+    const countEl = card.querySelector('.cat-count');
+    if (countEl) countEl.textContent = cat.images.length + ' 张';
+  }
+  updateTrainBtn();
+}
+
+function toggleImageManager(catId) {
+  const mgr = document.getElementById('imgMgr_' + catId);
+  if (!mgr) return;
+  mgr.classList.toggle('active');
+}
+
+function renderImageManager(catId, container) {
+  const cat = state.categories.find(c => c.id === catId);
+  if (!cat) return;
+
+  container.innerHTML = '';
+
+  const head = document.createElement('div');
+  head.className = 'cat-img-mgr-head';
+  head.innerHTML = '<span>' + cat.images.length + ' 张图片</span>';
+  container.appendChild(head);
+
+  const grid = document.createElement('div');
+  grid.className = 'cat-img-mgr-grid';
+
+  cat.images.forEach((item, idx) => {
+    const itemEl = document.createElement('div');
+    itemEl.className = 'cat-img-mgr-item';
+
+    const img = document.createElement('img');
+    img.src = item.dataUrl;
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'img-del';
+    delBtn.textContent = '\u2715';
+    delBtn.title = '删除此图片';
+    delBtn.onclick = (e) => { e.stopPropagation(); removeImageFromCategory(catId, idx); };
+
+    itemEl.appendChild(img);
+    itemEl.appendChild(delBtn);
+    grid.appendChild(itemEl);
+  });
+
+  const addEl = document.createElement('div');
+  addEl.className = 'cat-img-mgr-add';
+  addEl.textContent = '+';
+  addEl.title = '添加更多图片';
+  addEl.onclick = (e) => { e.stopPropagation(); triggerUpload(catId); };
+  grid.appendChild(addEl);
+
+  container.appendChild(grid);
+}
+
+function renameCategory(id, newName) {
+  const cat = state.categories.find(c => c.id === id);
+  if (!cat) return;
+  cat.name = newName || ('类别 ' + id);
+  updateTrainBtn();
+}
+
+function addImagesToCategory(id, images) {
+  const cat = state.categories.find(c => c.id === id);
+  if (!cat) return;
+  cat.images.push(...images);
+  renderCategories();
+  updateTrainBtn();
+}
+
+// ============================================================
+//  Render Categories
+// ============================================================
+function renderCategories() {
+  const strip = document.getElementById('catStrip');
+  strip.innerHTML = '';
+
+  state.categories.forEach(cat => {
+    const card = document.createElement('div');
+    card.className = 'cat-card';
+    card.dataset.catId = cat.id;
+
+    // Click to upload (ignore clicks on name input, action buttons, or image manager)
+    card.onclick = (e) => {
+      if (e.target.closest('.cat-name, .cat-btn, .cat-actions, .cat-img-mgr')) return;
+      triggerUpload(cat.id);
+    };
+
+    // Drag & drop
+    card.addEventListener('dragover', e => { e.preventDefault(); card.classList.add('dragover'); });
+    card.addEventListener('dragleave', () => card.classList.remove('dragover'));
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      card.classList.remove('dragover');
+      handleFileDrop(e.dataTransfer.files, cat.id);
+    });
+
+    // Top: dot + name + trained badge
+    const top = document.createElement('div');
+    top.className = 'cat-card-top';
+
+    const dot = document.createElement('span');
+    dot.className = 'cat-dot';
+    dot.style.background = cat.color;
+
+    const nameInput = document.createElement('input');
+    nameInput.className = 'cat-name';
+    nameInput.type = 'text';
+    nameInput.value = cat.name;
+    nameInput.placeholder = '类别名称';
+    nameInput.oninput = () => renameCategory(cat.id, nameInput.value);
+    nameInput.onclick = (e) => e.stopPropagation();
+
+    top.appendChild(dot);
+    top.appendChild(nameInput);
+
+    if (cat.locked) {
+      const trainedBadge = document.createElement('span');
+      trainedBadge.className = 'cat-badge-trained';
+      trainedBadge.textContent = '已训练';
+      top.appendChild(trainedBadge);
+    }
+
+    // Count
+    const countEl = document.createElement('div');
+    countEl.className = 'cat-count';
+    countEl.textContent = cat.images.length + ' 张';
+
+    // Thumbnails
+    const thumbs = document.createElement('div');
+    thumbs.className = 'cat-thumbs';
+    cat.images.slice(0, 6).forEach(item => {
+      const img = document.createElement('img');
+      img.src = item.dataUrl;
+      thumbs.appendChild(img);
+    });
+    if (cat.images.length > 6) {
+      const more = document.createElement('div');
+      more.className = 'cat-more';
+      more.textContent = '+' + (cat.images.length - 6);
+      thumbs.appendChild(more);
+    }
+    if (cat.images.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'cat-empty';
+      empty.textContent = '拖入或点击上传图片';
+      thumbs.appendChild(empty);
+    }
+
+    // Actions (top-right buttons)
+    const actions = document.createElement('div');
+    actions.className = 'cat-actions';
+
+    if (cat.images.length > 0) {
+      const manageBtn = document.createElement('button');
+      manageBtn.className = 'cat-btn manage';
+      manageBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>';
+      manageBtn.title = '管理图片';
+      manageBtn.onclick = (e) => { e.stopPropagation(); toggleImageManager(cat.id); };
+      actions.appendChild(manageBtn);
+
+      const clearBtn = document.createElement('button');
+      clearBtn.className = 'cat-btn clear';
+      clearBtn.textContent = '\u2715';
+      clearBtn.title = '清空图片';
+      clearBtn.onclick = (e) => { e.stopPropagation(); clearCategoryImages(cat.id); };
+      actions.appendChild(clearBtn);
+    }
+
+    if (!cat.locked) {
+      const delBtn = document.createElement('button');
+      delBtn.className = 'cat-btn';
+      delBtn.textContent = '\uD83D\uDDD1';
+      delBtn.title = '删除类别';
+      delBtn.onclick = (e) => { e.stopPropagation(); removeCategory(cat.id); };
+      actions.appendChild(delBtn);
+    }
+
+    // Image manager (expandable)
+    const imgMgr = document.createElement('div');
+    imgMgr.className = 'cat-img-mgr';
+    imgMgr.id = 'imgMgr_' + cat.id;
+    if (cat.images.length > 0) renderImageManager(cat.id, imgMgr);
+
+    card.appendChild(actions);
+    card.appendChild(top);
+    card.appendChild(countEl);
+    card.appendChild(thumbs);
+    card.appendChild(imgMgr);
+    strip.appendChild(card);
+  });
+
+  // Add-category button
+  const addBtn = document.createElement('div');
+  addBtn.className = 'cat-add-btn';
+  addBtn.onclick = () => createCategory('', false);
+  addBtn.innerHTML = '<span class="plus">+</span>添加类别';
+  strip.appendChild(addBtn);
+
+  // Update count label
+  const n = state.categories.length;
+  document.getElementById('catCount').textContent = n + ' 个类别';
+}
+
+function triggerUpload(catId) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.multiple = true;
+  input.onchange = () => handleFileDrop(input.files, catId);
+  input.click();
+}
+
+async function handleFileDrop(fileList, catId) {
+  const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+  if (files.length === 0) return;
+
+  const images = [];
+  for (const file of files) {
+    const dataUrl = await readFileAsDataUrl(file);
+    const img = await loadImage(dataUrl);
+    images.push({ img, dataUrl });
+  }
+  addImagesToCategory(catId, images);
+
+  const cat = state.categories.find(c => c.id === catId);
+  showToast(`已添加 ${files.length} 张图片到「${cat ? cat.name : ''}」`);
+}
+
+// ============================================================
+//  Train Button State
+// ============================================================
+function updateTrainBtn() {
+  const btn = document.getElementById('btnTrain');
+  if (!state.mobilenet) { btn.disabled = true; return; }
+
+  const validCats = state.categories.filter(c => c.images.length >= 2);
+  const canTrain = validCats.length >= 2;
+  btn.disabled = !canTrain;
+
+  if (state.trainMode === 'incremental' && state.model && state.trainingCatIds) {
+    btn.textContent = canTrain ? '增量训练' : '至少需 2 类（各 ≥ 2 张图）';
+  } else {
+    btn.textContent = '开始训练';
+  }
+}
+
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function transferIncrementalWeights(oldModel, newHead, oldCatIds, validCats, embeddingDim) {
+  const oldWeights = oldModel.getWeights();
+  if (oldWeights.length !== 4 || oldWeights[0].shape[0] !== embeddingDim || oldWeights[0].shape[1] !== 128) {
+    return { transferred: false, matchedClasses: 0, omittedOldCount: 0 };
+  }
+
+  const oldNumClasses = oldWeights[3].shape[0];
+  const hiddenUnits = oldWeights[0].shape[1];
+
+  // Transfer hidden Dense(128) weights & bias
+  const w0 = oldWeights[0].clone();
+  const b0 = oldWeights[1].clone();
+  newHead.layers[0].setWeights([w0, b0]);
+  w0.dispose();
+  b0.dispose();
+
+  // Transfer matching class columns in output Dense layer
+  const oldW2 = oldWeights[2].dataSync();
+  const oldB2 = oldWeights[3].dataSync();
+  const initOutWeights = newHead.layers[2].getWeights();
+  const patchedW2 = new Float32Array(initOutWeights[0].dataSync());
+  const patchedB2 = new Float32Array(initOutWeights[1].dataSync());
+  initOutWeights.forEach(t => t.dispose());
+
+  const numClasses = validCats.length;
+  let matchedClasses = 0;
+  const matchedOldIds = new Set();
+
+  validCats.forEach((cat, newIdx) => {
+    const oldIdx = oldCatIds.indexOf(cat.id);
+    if (oldIdx !== -1 && oldIdx < oldNumClasses) {
+      for (let r = 0; r < hiddenUnits; r++) {
+        patchedW2[r * numClasses + newIdx] = oldW2[r * oldNumClasses + oldIdx];
+      }
+      patchedB2[newIdx] = oldB2[oldIdx];
+      matchedClasses++;
+      matchedOldIds.add(cat.id);
+    }
+  });
+
+  const newW2Tensor = tf.tensor2d(patchedW2, [hiddenUnits, numClasses]);
+  const newB2Tensor = tf.tensor1d(patchedB2);
+  newHead.layers[2].setWeights([newW2Tensor, newB2Tensor]);
+  newW2Tensor.dispose();
+  newB2Tensor.dispose();
+
+  const omittedOldCount = oldCatIds.filter(id => !matchedOldIds.has(id)).length;
+  return { transferred: true, matchedClasses, omittedOldCount };
+}
+
+// ============================================================
+//  Training
+// ============================================================
+async function startTraining() {
+  if (!state.mobilenet) return showToast('MobileNet 还没加载完');
+
+  const isIncremental = state.trainMode === 'incremental' && !!state.model && !!state.trainingCatIds;
+  const trainedIds = new Set(state.trainingCatIds || []);
+
+  // Always require at least 2 valid classes (>= 2 images each)
+  const validCats = state.categories.filter(c => c.images.length >= 2);
+  if (validCats.length < 2) return showToast('至少需要 2 个类别，且每类至少 2 张图片');
+
+  const epochs = parseInt(document.getElementById('epochSelect').value, 10);
+  const numClasses = validCats.length;
+  const catNames = validCats.map(c => c.name);
+  const learningRate = isIncremental ? 0.0002 : 0.001;
+
+  const btn = document.getElementById('btnTrain');
+  btn.disabled = true;
+  btn.textContent = '训练中...';
+
+  const progressArea = document.getElementById('progressArea');
+  const progressBar = document.getElementById('progressBar');
+  const progressLabel = document.getElementById('progressLabel');
+  const progressPct = document.getElementById('progressPct');
+  const logEl = document.getElementById('trainLog');
+  progressArea.classList.add('active');
+  logEl.style.display = 'block';
+  logEl.innerHTML = '';
+  progressBar.style.width = '0';
+  progressPct.textContent = '0%';
+  document.getElementById('chartWrap').classList.remove('active');
+
+  function log(msg) {
+    logEl.textContent += msg + '\n';
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  let xsTrain = null, ysTrain = null, xsVal = null, ysVal = null;
+  let bestWeights = null;
+
+  try {
+    setStatus('loading', '正在提取特征...');
+
+    if (isIncremental) {
+      const newCatNames = validCats.filter(c => !trainedIds.has(c.id)).map(c => c.name);
+      const oldCatNames = validCats.filter(c => trainedIds.has(c.id)).map(c => c.name);
+      log('🔄 增量训练模式');
+      log(`📚 学习率: ${learningRate}（微调保留已有能力）`);
+      if (oldCatNames.length) log(`📂 保留类别: ${oldCatNames.join('、')}`);
+      if (newCatNames.length) log(`🆕 新增类别: ${newCatNames.join('、')}`);
+    } else {
+      log('📦 开始提取图片特征...');
+      log(`📂 类别: ${catNames.join('、')}`);
+    }
+
+    // Per-class stratified train/val split
+    const trainItems = [];
+    const valItems = [];
+    validCats.forEach((cat, classIdx) => {
+      const clsItems = shuffleArray(cat.images.map(item => ({ ...item, label: classIdx })));
+      const valCount = Math.max(1, Math.min(clsItems.length - 1, Math.round(clsItems.length * 0.15)));
+      valItems.push(...clsItems.slice(0, valCount));
+      trainItems.push(...clsItems.slice(valCount));
+    });
+
+    shuffleArray(trainItems);
+    shuffleArray(valItems);
+
+    async function extractSplitEmbeddings(items) {
+      const xs = [];
+      const ys = [];
+      for (const item of items) {
+        const tensor = imgToTensor(item.img);
+        const embedding = state.mobilenet.infer(tensor, true);
+        xs.push(embedding);
+        ys.push(item.label);
+        tensor.dispose();
+        await tf.nextFrame();
+      }
+      const xsRaw = tf.stack(xs);
+      xs.forEach(t => t.dispose());
+      const xsTensor = xsRaw.reshape([xsRaw.shape[0], xsRaw.shape[2]]);
+      xsRaw.dispose();
+      const ysTensor = tf.oneHot(tf.tensor1d(ys, 'int32'), numClasses);
+      return { xsTensor, ysTensor };
+    }
+
+    const trainSplit = await extractSplitEmbeddings(trainItems);
+    xsTrain = trainSplit.xsTensor;
+    ysTrain = trainSplit.ysTensor;
+
+    const valSplit = await extractSplitEmbeddings(valItems);
+    xsVal = valSplit.xsTensor;
+    ysVal = valSplit.ysTensor;
+
+    const embeddingDim = xsTrain.shape[1];
+    const totalSamples = trainItems.length + valItems.length;
+    log(`✅ 特征提取完成：${totalSamples} 张图片，特征维度 ${embeddingDim}`);
+
+    // Build classifier head
+    const head = tf.sequential({
+      layers: [
+        tf.layers.dense({ inputShape: [embeddingDim], units: 128, activation: 'relu' }),
+        tf.layers.dropout({ rate: 0.3 }),
+        tf.layers.dense({ units: numClasses, activation: 'softmax' }),
+      ],
+    });
+
+    if (isIncremental) {
+      const transfer = transferIncrementalWeights(state.model, head, state.trainingCatIds, validCats, embeddingDim);
+      if (transfer.transferred) {
+        log(`🧬 已迁移隐藏层权重及 ${transfer.matchedClasses} 个旧类别的输出权重`);
+        if (transfer.omittedOldCount > 0) {
+          log(`⚠️ 提示：有 ${transfer.omittedOldCount} 个原已训练类别因当前未提供 ≥2 张样本，已从新输出层移除`);
+        }
+      } else {
+        log('⚠️ 原模型结构与当前不匹配，已初始化新分类头进行训练');
+      }
+    }
+
+    head.compile({
+      optimizer: tf.train.adam(learningRate),
+      loss: 'categoricalCrossentropy',
+      metrics: ['accuracy'],
+    });
+
+    log(`📊 分层划分：训练集 ${trainItems.length} 张 / 验证集 ${valItems.length} 张（每类均参与验证）`);
+    log(`🏋️ 开始训练 ${epochs} 轮...\n`);
+    setStatus('loading', '训练中...');
+
+    // Training loop
+    let bestValAcc = -1;
+    const history = { trainAcc: [], valAcc: [], loss: [], valLoss: [] };
+
+    await head.fit(xsTrain, ysTrain, {
+      epochs,
+      batchSize: Math.min(8, trainItems.length),
+      validationData: [xsVal, ysVal],
+      shuffle: true,
+      callbacks: {
+        onEpochEnd: async (epoch, logs) => {
+          const pct = Math.round(((epoch + 1) / epochs) * 100);
+          progressBar.style.width = pct + '%';
+          progressPct.textContent = pct + '%';
+          progressLabel.textContent = `第 ${epoch + 1} / ${epochs} 轮`;
+
+          const acc = logs.acc ?? logs.accuracy ?? 0;
+          const valAccNum = logs.val_acc ?? logs.val_accuracy ?? 0;
+          const trainAcc = (acc * 100).toFixed(1);
+          const valAcc = (valAccNum * 100).toFixed(1);
+          const loss = logs.loss.toFixed(4);
+          const isBest = valAccNum > bestValAcc;
+          const star = isBest ? ' ⭐' : '';
+
+          log(`Epoch ${String(epoch + 1).padStart(2)} | 训练准确率: ${trainAcc}% | 验证准确率: ${valAcc}% | 损失: ${loss}${star}`);
+
+          history.trainAcc.push(acc);
+          history.valAcc.push(valAccNum);
+          history.loss.push(logs.loss);
+          history.valLoss.push(logs.val_loss);
+
+          if (isBest) {
+            bestValAcc = valAccNum;
+            if (bestWeights) bestWeights.forEach(t => t.dispose());
+            bestWeights = head.getWeights().map(w => w.clone());
+          }
+          await tf.nextFrame();
+        }
+      }
+    });
+
+    // Restore best weights and dispose clones
+    if (bestWeights) {
+      head.setWeights(bestWeights);
+      bestWeights.forEach(t => t.dispose());
+      bestWeights = null;
+    }
+
+    // Update model & category state
+    if (state.model) state.model.dispose();
+    state.model = head;
+    state.trained = true;
+    state.trainingCatIds = validCats.map(c => c.id);
+    state.lastBestValAcc = bestValAcc >= 0 ? bestValAcc : 0;
+    state.lastEpochs = epochs;
+
+    const validIdSet = new Set(state.trainingCatIds);
+    state.categories.forEach(c => {
+      c.locked = validIdSet.has(c.id);
+    });
+
+    const samplesPerClass = {};
+    validCats.forEach(c => { samplesPerClass[c.name] = c.images.length; });
+    const prevVer = (state.loadedModelMeta && state.loadedModelMeta.version) ? state.loadedModelMeta.version : 0;
+    const newMeta = {
+      classes: catNames,
+      numClasses: numClasses,
+      trainedAt: new Date().toISOString(),
+      embeddingDim: embeddingDim,
+      modelType: 'MobileNetV2 + Dense Classifier',
+      bestValAcc: state.lastBestValAcc,
+      epochs: epochs,
+      totalSamples: totalSamples,
+      samplesPerClass: samplesPerClass,
+      version: isIncremental ? (prevVer + 1) : 1,
+    };
+    state.loadedModelMeta = newMeta;
+
+    if (isIncremental) {
+      showModelInfo(newMeta, numClasses);
+    }
+
+    renderCategories();
+    updateOverview();
+    updateManagementPage();
+
+    const modeLabel = isIncremental ? '增量训练' : '训练';
+    log(`\n🎉 ${modeLabel}完成！最佳验证准确率: ${(state.lastBestValAcc * 100).toFixed(1)}%`);
+    progressLabel.textContent = `${modeLabel}完成！`;
+    setStatus('ready', `模型已就绪（${numClasses} 类）`);
+    showToast(`${modeLabel}完成！现在可以测试图片了`);
+
+    // Draw training chart
+    drawChart(history, epochs);
+
+  } catch (e) {
+    console.error(e);
+    log('❌ 训练出错：' + e.message);
+    setStatus('error', '训练失败');
+    showToast('训练失败：' + e.message);
+  } finally {
+    if (bestWeights) bestWeights.forEach(t => t.dispose());
+    if (xsTrain) xsTrain.dispose();
+    if (ysTrain) ysTrain.dispose();
+    if (xsVal) xsVal.dispose();
+    if (ysVal) ysVal.dispose();
+  }
+
+  updateTrainBtn();
+}
+
+// ============================================================
+//  Testing
+// ============================================================
+async function handleTestFiles(fileList) {
+  if (!state.trained) return showToast('请先训练或加载模型');
+
+  const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+  if (files.length === 0) return;
+
+  if (files.length === 1) {
+    const dataUrl = await readFileAsDataUrl(files[0]);
+    document.getElementById('testImg').src = dataUrl;
+    document.getElementById('testPreview').style.display = 'block';
+    document.getElementById('testDrop').style.display = 'none';
+    document.getElementById('batchArea').style.display = 'none';
+
+    const img = await loadImage(dataUrl);
+    const result = await predictImage(img);
+    state.lastTestResult = result;
+    showResult(result);
+  } else {
+    state.lastTestResult = null;
+    document.getElementById('testPreview').style.display = 'none';
+    document.getElementById('resultArea').classList.remove('active');
+    document.getElementById('testDrop').style.display = 'none';
+    document.getElementById('batchArea').style.display = 'block';
+
+    const batchResults = document.getElementById('batchResults');
+    batchResults.innerHTML = '';
+
+    const counts = {};
+    let uncertainCount = 0;
+    for (const file of files) {
+      const dataUrl = await readFileAsDataUrl(file);
+      const img = await loadImage(dataUrl);
+      const result = await predictImage(img);
+
+      const belowThreshold = result.confidence < state.threshold;
+      if (belowThreshold) {
+        uncertainCount++;
+      } else {
+        counts[result.predName] = (counts[result.predName] || 0) + 1;
+      }
+
+      const cat = state.categories.find(c => c.name === result.predName);
+      const borderColor = belowThreshold ? '#F59E0B' : (cat ? cat.color : 'var(--border)');
+
+      const item = document.createElement('div');
+      item.className = 'batch-item' + (belowThreshold ? ' uncertain' : '');
+      item.style.borderColor = borderColor;
+      item.innerHTML = `
+        <img src="${dataUrl}" alt="">
+        <div class="info">
+          <div class="name">${belowThreshold ? '❓ 无法确定' : result.predName}</div>
+          <div class="conf">${result.confidence.toFixed(1)}%</div>
+        </div>
+      `;
+      item.onclick = () => {
+        document.getElementById('testImg').src = dataUrl;
+        document.getElementById('testPreview').style.display = 'block';
+        document.getElementById('batchArea').style.display = 'none';
+        state.lastTestResult = result;
+        showResult(result);
+      };
+      batchResults.appendChild(item);
+    }
+
+    const summaryParts = Object.entries(counts).map(([k, v]) => `${k} ${v}张`);
+    if (uncertainCount > 0) summaryParts.push(`无法确定 ${uncertainCount}张`);
+    document.getElementById('batchSummary').textContent = `${files.length} 张图片：${summaryParts.join('，')}`;
+    showToast('批量测试完成');
+  }
+}
+
+// ============================================================
+//  Load Saved / Demo Model
+// ============================================================
+document.getElementById('fileModel').addEventListener('change', async (e) => {
+  await loadSavedModel(Array.from(e.target.files));
+});
+
+async function applyLoadedModel(modelSpec, weightBuffer, classInfo, sourceLabel) {
+  const model = await tf.loadLayersModel({
+    load: async () => ({
+      modelTopology: modelSpec.modelTopology,
+      format: modelSpec.format || 'layers-model',
+      generatedBy: modelSpec.generatedBy || '',
+      convertedBy: modelSpec.convertedBy || '',
+      weightSpecs: modelSpec.weightsManifest[0].weights,
+      weightData: weightBuffer,
+    })
+  });
+
+  const outputShape = model.outputShape;
+  const numClasses = outputShape[outputShape.length - 1];
+
+  if (state.model) state.model.dispose();
+  state.model = model;
+  state.trained = true;
+  state.hasChart = false;
+
+  // Rebuild categories from metadata or fallback names
+  state.categories = [];
+  nextCatId = 1;
+
+  if (classInfo && Array.isArray(classInfo.classes) && classInfo.classes.length === numClasses) {
+    state.trainingCatIds = classInfo.classes.map(name => createCategory(name, true).id);
+    state.loadedModelMeta = classInfo;
+  } else {
+    state.trainingCatIds = [];
+    for (let i = 0; i < numClasses; i++) {
+      const cat = createCategory('类别 ' + (i + 1), true);
+      state.trainingCatIds.push(cat.id);
+    }
+    state.loadedModelMeta = classInfo || null;
+    if (!classInfo) showToast('提示：未加载 metadata.json，类别名称为默认值');
+  }
+
+  state.lastBestValAcc = (classInfo && typeof classInfo.bestValAcc === 'number') ? classInfo.bestValAcc : null;
+  state.lastEpochs = (classInfo && classInfo.epochs) ? classInfo.epochs : null;
+
+  showModelInfo(classInfo, numClasses);
+
+  // Switch to incremental mode
+  state.trainMode = 'incremental';
+  document.getElementById('modeSection').style.display = 'flex';
+  document.getElementById('modeToggle').checked = true;
+  updateModeLabel();
+
+  const infoEl = document.getElementById('loadedModelInfo');
+  infoEl.textContent = `✅ 已加载${sourceLabel ? '（' + sourceLabel + '，' : '（'}${numClasses} 类）`;
+  setStatus('ready', `已加载模型（${numClasses} 类）`);
+
+  renderCategories();
+  updateOverview();
+  updateManagementPage();
+  updateTrainBtn();
+
+  showToast('模型加载成功！可直接前往「测试识别」，或继续微调训练');
+}
+
+async function loadSavedModel(files) {
+  if (files.length < 2) return showToast('请同时选择 .json 和 .bin 模型文件（如有 metadata.json 请一并选择）');
+
+  let modelJsonFile = null, weightsFile = null, metadataFile = null;
+  for (const f of files) {
+    if (f.name === 'metadata.json') metadataFile = f;
+    else if (f.name.endsWith('.json')) modelJsonFile = f;
+    else if (f.name.endsWith('.bin')) weightsFile = f;
+  }
+
+  if (!modelJsonFile || !weightsFile) return showToast('缺少模型文件（需要 .json + .bin）');
+
+  const infoEl = document.getElementById('loadedModelInfo');
+  infoEl.textContent = '正在加载...';
+
+  try {
+    const modelSpec = JSON.parse(await modelJsonFile.text());
+    const weightBuffer = await weightsFile.arrayBuffer();
+    const classInfo = metadataFile ? JSON.parse(await metadataFile.text()) : null;
+    await applyLoadedModel(modelSpec, weightBuffer, classInfo, '本地文件');
+  } catch (e) {
+    console.error(e);
+    infoEl.textContent = '❌ 加载失败';
+    showToast('模型加载失败：' + e.message);
+  }
+}
+
+async function loadDemoModel() {
+  const infoEl = document.getElementById('loadedModelInfo');
+  const btn = document.getElementById('btnLoadDemo');
+  btn.disabled = true;
+  infoEl.textContent = '正在加载示例模型...';
+
+  try {
+    const [modelRes, weightsRes, metaRes] = await Promise.all([
+      fetch('./demo-model/zumiao-model.json'),
+      fetch('./demo-model/zumiao-model.weights.bin'),
+      fetch('./demo-model/metadata.json'),
+    ]);
+
+    if (!modelRes.ok || !weightsRes.ok) {
+      throw new Error(`HTTP ${modelRes.status} / ${weightsRes.status}`);
+    }
+
+    const modelSpec = await modelRes.json();
+    const weightBuffer = await weightsRes.arrayBuffer();
+    const classInfo = metaRes.ok ? await metaRes.json() : null;
+
+    await applyLoadedModel(modelSpec, weightBuffer, classInfo, 'ZumiaoLens 示例');
+  } catch (e) {
+    console.error(e);
+    const isFileProto = window.location.protocol === 'file:';
+    infoEl.textContent = isFileProto
+      ? '❌ file:// 协议禁止 fetch，请点击「选择模型文件」选中 demo-model/ 下 3 个文件，或改用 HTTP 服务访问'
+      : '❌ 示例模型加载失败：' + e.message;
+    showToast(isFileProto ? '请通过 HTTP 服务访问，或点击「选择模型文件」加载 demo-model' : '示例模型加载失败：' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function predictImage(imgElement) {
+  if (!state.trainingCatIds || !state.trainingCatIds.length) {
+    showToast('模型类别信息缺失');
+    return { predIdx: 0, predName: '未知', predColor: '#999', confidence: 0, results: [] };
+  }
+  if (!state.mobilenet) {
+    showToast('MobileNet 特征提取器仍在加载中');
+    return { predIdx: 0, predName: '未知', predColor: '#999', confidence: 0, results: [] };
+  }
+  const catNames = state.trainingCatIds.map(id => {
+    const cat = state.categories.find(c => c.id === id);
+    return cat ? cat.name : '未知';
+  });
+  const catColors = state.trainingCatIds.map(id => {
+    const cat = state.categories.find(c => c.id === id);
+    return cat ? cat.color : '#999';
+  });
+
+  const tensor = imgToTensor(imgElement);
+  const embedding = state.mobilenet.infer(tensor, true);
+  tensor.dispose();
+
+  const prediction = state.model.predict(embedding);
+  const probs = await prediction.data();
+  embedding.dispose();
+  prediction.dispose();
+
+  let predIdx = 0;
+  for (let i = 1; i < probs.length; i++) {
+    if (probs[i] > probs[predIdx]) predIdx = i;
+  }
+
+  const results = [];
+  for (let i = 0; i < probs.length; i++) {
+    results.push({
+      idx: i,
+      name: catNames[i],
+      color: catColors[i],
+      prob: probs[i],
+    });
+  }
+  results.sort((a, b) => b.prob - a.prob);
+
+  return {
+    predIdx,
+    predName: catNames[predIdx],
+    predColor: catColors[predIdx],
+    confidence: probs[predIdx] * 100,
+    results,
+  };
+}
+
+function showResult(result) {
+  const area = document.getElementById('resultArea');
+  area.classList.add('active');
+
+  const placeholder = document.getElementById('testPlaceholder');
+  if (placeholder) placeholder.style.display = 'none';
+
+  const card = document.getElementById('resultCard');
+  const belowThreshold = result.confidence < state.threshold;
+
+  if (belowThreshold) {
+    card.className = 'result-card uncertain';
+    document.getElementById('resultIcon').textContent = '❓';
+    document.getElementById('resultLabel').textContent = '无法确定';
+    document.getElementById('resultConf').textContent = `最高置信度仅 ${result.confidence.toFixed(1)}%，低于门槛 ${state.threshold}%`;
+  } else {
+    const isStrong = result.confidence > 85;
+    card.className = 'result-card ' + (isStrong ? 'positive' : 'negative');
+    document.getElementById('resultIcon').textContent = isStrong ? '✨' : '🔍';
+    document.getElementById('resultLabel').textContent = result.predName;
+    document.getElementById('resultConf').textContent = `置信度 ${result.confidence.toFixed(1)}%`;
+  }
+
+  const barsEl = document.getElementById('probBars');
+  barsEl.innerHTML = '';
+  result.results.forEach((r, rank) => {
+    const pct = (r.prob * 100).toFixed(1);
+    const row = document.createElement('div');
+    row.className = 'prob-row';
+    row.innerHTML = `
+      <span class="prob-rank">${rank + 1}</span>
+      <span class="prob-label" style="color:${rank === 0 ? r.color : 'var(--text2)'};font-weight:${rank === 0 ? '600' : '400'}">${r.name}</span>
+      <div class="prob-bar-outer">
+        <div class="prob-bar-inner" style="width:${pct}%;background:${r.color}">${pct}%</div>
+      </div>
+    `;
+    barsEl.appendChild(row);
+  });
+}
+
+function resetTest() {
+  state.lastTestResult = null;
+  document.getElementById('testPreview').style.display = 'none';
+  document.getElementById('resultArea').classList.remove('active');
+  document.getElementById('batchArea').style.display = 'none';
+  document.getElementById('testDrop').style.display = 'block';
+  document.getElementById('fileTest').value = '';
+  const placeholder = document.getElementById('testPlaceholder');
+  if (placeholder) placeholder.style.display = 'block';
+}
+
+// ============================================================
+//  Utilities
+// ============================================================
+function drawChart(history, totalEpochs) {
+  const wrap = document.getElementById('chartWrap');
+  wrap.classList.add('active');
+  state.hasChart = true;
+
+  const canvas = document.getElementById('trainChart');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const W = rect.width, H = rect.height;
+  const pad = { top: 20, right: 50, bottom: 32, left: 50 };
+  const cW = W - pad.left - pad.right;
+  const cH = H - pad.top - pad.bottom;
+
+  ctx.fillStyle = '#0F172A';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = 'rgba(148,163,184,0.15)';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 5; i++) {
+    const y = pad.top + (i / 5) * cH;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+  }
+
+  ctx.fillStyle = '#94A3B8';
+  ctx.font = '10px -apple-system, "PingFang SC", sans-serif';
+
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 5; i++) {
+    const y = pad.top + (i / 5) * cH;
+    ctx.fillText(((5 - i) * 20) + '%', pad.left - 8, y + 3);
+  }
+
+  const maxLoss = Math.max(...history.loss, 0.1);
+  ctx.textAlign = 'left';
+  for (let i = 0; i <= 5; i++) {
+    const y = pad.top + (i / 5) * cH;
+    ctx.fillText(((5 - i) / 5 * maxLoss).toFixed(2), W - pad.right + 6, y + 3);
+  }
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#64748B';
+  const step = Math.max(1, Math.ceil(totalEpochs / 8));
+  for (let i = 0; i < totalEpochs; i += step) {
+    const x = pad.left + (i / (totalEpochs - 1 || 1)) * cW;
+    ctx.fillText(i + 1, x, H - 10);
+  }
+
+  ctx.font = '10px -apple-system, "PingFang SC", sans-serif';
+  ctx.fillStyle = '#64748B';
+  ctx.textAlign = 'center';
+  ctx.fillText('Epoch', W / 2, H - 1);
+
+  function drawCurve(data, color, maxVal) {
+    if (data.length < 2) return;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    data.forEach((v, i) => {
+      const x = pad.left + (i / (data.length - 1 || 1)) * cW;
+      const y = pad.top + (1 - v / maxVal) * cH;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    const lastX = pad.left + cW;
+    const lastY = pad.top + (1 - data[data.length - 1] / maxVal) * cH;
+    ctx.beginPath();
+    ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+
+  drawCurve(history.trainAcc, '#22C55E', 1);
+  drawCurve(history.valAcc, '#F59E0B', 1);
+  drawCurve(history.loss, '#EF4444', maxLoss);
+}
+
+async function downloadModel() {
+  if (!state.model || !state.trained) return showToast('还没有训练好的模型');
+
+  const catNames = state.trainingCatIds.map(id => {
+    const c = state.categories.find(cat => cat.id === id);
+    return c ? c.name : 'unknown';
+  });
+  const samplesPerClass = {};
+  state.trainingCatIds.forEach(id => {
+    const c = state.categories.find(cat => cat.id === id);
+    if (c) samplesPerClass[c.name] = c.images.length;
+  });
+  const totalSamples = Object.values(samplesPerClass).reduce((a, b) => a + b, 0);
+
+  const meta = {
+    classes: catNames,
+    numClasses: catNames.length,
+    trainedAt: new Date().toISOString(),
+    embeddingDim: 1280,
+    modelType: 'MobileNetV2 + Dense Classifier',
+    bestValAcc: state.lastBestValAcc,
+    epochs: state.lastEpochs,
+    totalSamples: totalSamples || (state.loadedModelMeta ? state.loadedModelMeta.totalSamples : null),
+    samplesPerClass: totalSamples ? samplesPerClass : (state.loadedModelMeta ? state.loadedModelMeta.samplesPerClass : samplesPerClass),
+    version: state.loadedModelMeta ? (state.loadedModelMeta.version || 1) : 1,
+  };
+
+  await state.model.save('downloads://korovision-model');
+
+  const metaBlob = new Blob([JSON.stringify(meta, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(metaBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'metadata.json';
+  a.click();
+  URL.revokeObjectURL(url);
+
+  showToast('模型已下载（.json + .bin + metadata.json）');
+}
+
+function downloadChart() {
+  if (!state.hasChart) return showToast('请先完成一次训练以生成训练曲线');
+  const canvas = document.getElementById('trainChart');
+  const a = document.createElement('a');
+  a.download = 'training-curve.png';
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+  showToast('曲线图已导出');
+}
+
+function imgToTensor(imgElement) {
+  return tf.tidy(() => {
+    let t = tf.browser.fromPixels(imgElement).toFloat();
+    const h = t.shape[0], w = t.shape[1];
+    const side = Math.min(h, w);
+    const top = Math.floor((h - side) / 2);
+    const left = Math.floor((w - side) / 2);
+    t = t.slice([top, left, 0], [side, side, 3]);
+    t = tf.image.resizeBilinear(t, [IMG_SIZE, IMG_SIZE]);
+    return t.expandDims(0);
+  });
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+function setStatus(type, text) {
+  document.getElementById('statusDot').className = 'status-dot ' + type;
+  document.getElementById('statusText').textContent = text;
+}
+
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ============================================================
+//  Model Info Panel & Train Mode
+// ============================================================
+function showModelInfo(meta, numClasses) {
+  const panel = document.getElementById('modelInfoPanel');
+  const statsEl = document.getElementById('modelInfoStats');
+  const catsEl = document.getElementById('modelInfoCats');
+  const badge = document.getElementById('modelInfoBadge');
+
+  if (meta && meta.version) {
+    badge.textContent = 'v' + meta.version + ' 已训练';
+  } else {
+    badge.textContent = '已训练';
+  }
+
+  const stats = [];
+  if (meta) {
+    if (typeof meta.bestValAcc === 'number') stats.push(`<b>${(meta.bestValAcc * 100).toFixed(1)}%</b> 最佳准确率`);
+    if (meta.epochs) stats.push(`<b>${meta.epochs}</b> 训练轮数`);
+    if (meta.totalSamples) stats.push(`<b>${meta.totalSamples}</b> 训练样本`);
+    if (meta.trainedAt) {
+      const d = new Date(meta.trainedAt);
+      stats.push(`<b>${d.getMonth() + 1}/${d.getDate()}</b> 训练日期`);
+    }
+  }
+  statsEl.innerHTML = stats.length
+    ? stats.map(s => `<span class="model-info-stat">${s}</span>`).join('')
+    : '<span class="model-info-stat">共 <b>' + numClasses + '</b> 个识别类别</span>';
+
+  const cats = state.trainingCatIds || [];
+  catsEl.innerHTML = cats.map(id => {
+    const cat = state.categories.find(c => c.id === id);
+    if (!cat) return '';
+    const sampleCount = meta && meta.samplesPerClass ? (meta.samplesPerClass[cat.name] || 0) : 0;
+    return `<span class="model-info-chip">
+      <span class="dot" style="background:${cat.color}"></span>
+      ${cat.name}${sampleCount ? ' (' + sampleCount + '张)' : ''}
+    </span>`;
+  }).join('');
+
+  panel.classList.add('active');
+}
+
+function switchTrainMode() {
+  const checked = document.getElementById('modeToggle').checked;
+  state.trainMode = checked ? 'incremental' : 'new';
+  if (state.trainMode === 'new') {
+    state.categories.forEach(c => { c.locked = false; });
+    renderCategories();
+  } else if (state.trainingCatIds) {
+    const trainedSet = new Set(state.trainingCatIds);
+    state.categories.forEach(c => { c.locked = trainedSet.has(c.id); });
+    renderCategories();
+  }
+  updateModeLabel();
+  updateTrainBtn();
+}
+
+function updateModeLabel() {
+  const label = document.getElementById('modeLabelText');
+  const desc = document.getElementById('modeDescText');
+  if (state.trainMode === 'incremental') {
+    label.textContent = '增量训练';
+    desc.textContent = '复用已加载模型的隐藏层与已有类别权重，以较低学习率 (0.0002) 微调（需保留至少 2 个含样本的类别，新增类别时建议为旧类别提供少量样本防止遗忘）';
+  } else {
+    label.textContent = '全新训练';
+    desc.textContent = '清空已加载模型，从零开始训练全新分类器（已解锁所有类别可自由增删）';
+  }
+}
+
+// ============================================================
+//  Test zone drag & drop
+// ============================================================
+const testDrop = document.getElementById('testDrop');
+const fileTest = document.getElementById('fileTest');
+testDrop.addEventListener('dragover', e => { e.preventDefault(); testDrop.classList.add('dragover'); });
+testDrop.addEventListener('dragleave', () => testDrop.classList.remove('dragover'));
+testDrop.addEventListener('drop', e => {
+  e.preventDefault();
+  testDrop.classList.remove('dragover');
+  handleTestFiles(e.dataTransfer.files);
+});
+fileTest.addEventListener('change', e => handleTestFiles(e.target.files));
+
+// ============================================================
+//  Page Navigation
+// ============================================================
+function switchPage(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + pageId).classList.add('active');
+  document.querySelector('[data-page="' + pageId + '"]').classList.add('active');
+  if (pageId === 'overview') updateOverview();
+  if (pageId === 'management') updateManagementPage();
+}
+
+function updateOverview() {
+  const totalImages = state.categories.reduce((sum, c) => sum + c.images.length, 0);
+  document.getElementById('ovCatCount').textContent = state.categories.length;
+  document.getElementById('ovImgCount').textContent = totalImages;
+  document.getElementById('ovAccuracy').textContent = typeof state.lastBestValAcc === 'number'
+    ? (state.lastBestValAcc * 100).toFixed(1) + '%'
+    : '--';
+  document.getElementById('ovEpochs').textContent = state.lastEpochs || '--';
+  document.getElementById('topCatCount').textContent = state.categories.length;
+  document.getElementById('topImgCount').textContent = totalImages;
+}
+
+function updateManagementPage() {
+  const numCats = state.trainingCatIds ? state.trainingCatIds.length : state.categories.length;
+  document.getElementById('mgmtNumCats').textContent = state.trained ? numCats + ' 类' : '--';
+  document.getElementById('mgmtAccuracy').textContent = typeof state.lastBestValAcc === 'number'
+    ? (state.lastBestValAcc * 100).toFixed(1) + '%'
+    : '--';
+  document.getElementById('mgmtEpochs').textContent = state.lastEpochs || '--';
+  document.getElementById('mgmtStatus').textContent = state.trained ? '已训练' : '未训练';
+  if (state.loadedModelMeta && state.loadedModelMeta.version) {
+    document.getElementById('mgmtStatus').textContent = 'v' + state.loadedModelMeta.version + ' 已训练';
+  }
+}
+
+// ============================================================
+//  Init
+// ============================================================
+(async () => {
+  createCategory('类别 1', false);
+  createCategory('类别 2', false);
+
+  const _origRender = renderCategories;
+  renderCategories = function() {
+    _origRender();
+    updateOverview();
+    updateManagementPage();
+  };
+
+  const _origUpdateBtn = updateTrainBtn;
+  updateTrainBtn = function() {
+    _origUpdateBtn();
+    updateOverview();
+  };
+
+  updateOverview();
+
+  try {
+    setStatus('loading', '正在加载 MobileNet...');
+    state.mobilenet = await mobilenet.load({ version: 2, alpha: 1.0 });
+    setStatus('ready', 'MobileNet 已就绪');
+    updateTrainBtn();
+  } catch (e) {
+    setStatus('error', '模型加载失败');
+    console.error(e);
+    showToast('MobileNet 加载失败，请检查网络并刷新重试');
+  }
+})();
+</script>
+</body>
+</html>

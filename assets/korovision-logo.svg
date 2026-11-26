@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 180" width="720" height="180" role="img" aria-label="KoroVision Logo">
+  <defs>
+    <linearGradient id="kvIconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB" />
+      <stop offset="100%" stop-color="#1D4ED8" />
+    </linearGradient>
+    <linearGradient id="kvAccentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2563EB" />
+      <stop offset="100%" stop-color="#3B82F6" />
+    </linearGradient>
+  </defs>
+
+  <!-- Pill card safe for both GitHub light & dark themes -->
+  <rect x="4" y="4" width="712" height="172" rx="24" fill="#FFFFFF" stroke="#E5E7EB" stroke-width="2" />
+
+  <!-- Left geometric aperture icon -->
+  <rect x="34" y="34" width="112" height="112" rx="26" fill="url(#kvIconGrad)" />
+  <g transform="translate(90, 90)" fill="none" stroke="#FFFFFF" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="0" cy="0" r="34" stroke-opacity="0.95" />
+    <circle cx="0" cy="0" r="13" fill="#FFFFFF" fill-opacity="0.16" />
+    <line x1="-13" y1="0" x2="5" y2="-32" />
+    <line x1="-6.5" y1="11.3" x2="29" y2="-16" />
+    <line x1="6.5" y1="11.3" x2="29" y2="16" />
+    <line x1="13" y1="0" x2="-5" y2="32" />
+    <line x1="6.5" y1="-11.3" x2="-29" y2="16" />
+    <line x1="-6.5" y1="-11.3" x2="-29" y2="-16" />
+  </g>
+
+  <!-- Wordmark -->
+  <text x="174" y="96" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="60" font-weight="800" letter-spacing="-1.5">
+    <tspan fill="#0F172A">Koro</tspan><tspan fill="url(#kvAccentGrad)">Vision</tspan>
+  </text>
+
+  <!-- Subtitle -->
+  <text x="176" y="132" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="18" font-weight="500" letter-spacing="0.2" fill="#64748B">
+    Browser-Native Visual Recognition &amp; Training Workbench
+  </text>
+</svg>
