@@ -116,3 +116,10 @@ KoroVision/
         ├── requirements.txt
         └── DEPLOY.md
 ```
+
+---
+
+## Koro 工具生态
+
+- **[KoroVision](https://github.com/KorothyFan/KoroVision)**：基于 TensorFlow.js + MobileNet V2 的浏览器端零代码视觉识别与训练平台（[在线体验](https://korothyfan.github.io/KoroVision/)）
+- **[KoroFlow](https://github.com/KorothyFan/KoroFlow)**：AIGC 视频制作、并排审片与多平台运营工作流
